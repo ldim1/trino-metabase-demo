@@ -1,3 +1,5 @@
+# Mongo and Postgres query federation
+
 `docker-compose up -d`
 
 `docker exec -it trino-trino-1 trino`
