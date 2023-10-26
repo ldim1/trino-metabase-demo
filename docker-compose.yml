@@ -1,0 +1,36 @@
+version: "3.9"
+services:
+  trino:
+    ports:
+      - "8080:8080"
+    image: "trinodb/trino:latest"
+    volumes:
+      - ./trino/etc:/usr/lib/trino/etc:ro
+      - ./trino/catalog:/etc/trino/catalog
+
+  postgres:
+    ports:
+      - "5432:5432"
+    image: postgres:14.1-alpine
+    environment:
+      POSTGRES_USER: trino
+      POSTGRES_PASSWORD: trino
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/create_tables.sql
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=test
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+    volumes:
+      - ./docker-entrypoint-initdb.d/mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8088:8080"
