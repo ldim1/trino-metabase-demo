@@ -4,9 +4,23 @@ services:
     ports:
       - "8080:8080"
     image: "trinodb/trino:latest"
+    depends_on:
+      - minio-cli
     volumes:
       - ./trino/etc:/usr/lib/trino/etc:ro
       - ./trino/catalog:/etc/trino/catalog
+      - $HOME/.config/gcloud:/etc/gcp/config:ro
+
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - 3000:3000
+    volumes:
+      - ./metabase/plugins:/plugins
+    environment:
+      MB_PLUGINS_DIR: /plugins
+    depends_on:
+      - trino
 
   postgres:
     ports:
@@ -28,6 +42,51 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=admin
     volumes:
       - ./mongodb/mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
+
+  minio:
+    hostname: minio
+    image: 'minio/minio'
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    command: server /data --console-address ":9001"
+
+  minio-cli:
+    image: 'minio/mc'
+    depends_on:
+      - minio
+    volumes:
+      - ./minio:/data
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc config;
+      /usr/bin/mc config host add minio http://minio:9000 minio minio123;
+      /usr/bin/mc mb minio/bucket/detail;
+      /usr/bin/mc mb minio/bucket/user;
+      /usr/bin/mc mirror --remove /data/detail minio/bucket/detail;
+      /usr/bin/mc mirror --remove /data/user minio/bucket/user;
+      exit 0;
+      "
+
+#  Seems that Trino BigQuery connector have issues with local connections?
+#
+#     bigquery.rpc-proxy.uri=http://bigquery:9050
+#
+#  Query 20231113_080738_00000_a62np failed: com.google.api.client.http.HttpResponseException: 301 Moved Permanently
+#  POST https://oauth2.googleapis.com:443/
+#
+#  bigquery:
+#    image: ghcr.io/goccy/bigquery-emulator:latest
+#    platform:
+#      linux/x86_64
+#    ports:
+#      - "9050:9050"
+#    volumes:
+#      - ./bq:/etc/bq
+#    command: --project=test --data-from-yaml=/etc/bq/data.yaml
 
   adminer:
     image: adminer
